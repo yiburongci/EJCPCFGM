@@ -1,5 +1,4 @@
 # EJCPCFGM
-# Quantum Grey Model Project
 
 This repository contains Python scripts for studying and comparing grey forecasting models for provincial electricity consumption and electricity generation data. The project focuses on the proposed **EJCPCFGM** model, several baseline forecasting methods, and supporting analysis scripts.
 
