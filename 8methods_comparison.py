@@ -1,16 +1,10 @@
-"""
-8 Methods Comparison Analysis (with EJCPCFGM(σ,1))
-Only includes Jiangsu and Anhui provinces
-"""
-
+"""Compare 8 forecasting methods on Jiangsu/Anhui electricity data."""
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
-from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.patheffects as pe
 import warnings
-import os
-
 warnings.filterwarnings('ignore')
 rcParams['font.family'] = 'DejaVu Sans'
 rcParams['axes.unicode_minus'] = False
@@ -19,758 +13,290 @@ TRAIN_YEARS = list(range(2010, 2022))
 TEST_YEARS = list(range(2022, 2025))
 ALL_YEARS = TRAIN_YEARS + TEST_YEARS
 
-METHOD_NAMES = ['EJCPCFGM(σ,1)', 'ARIMA', 'GM(1,1)', 'FAGM(1,1)', 'JFGM(r,s,ad,1)', 'NGBM(1,1)', 'LSSVR', 'LSTM']
+METHODS = ['EJCPCFGM', 'ARIMA', 'GM', 'FAGM', 'JFGM', 'NGBM', 'LSSVR', 'LSTM']
+COLORS = ['#0066CC', '#CC3300', '#006633', '#660099', '#CC9900',
+          '#0099CC', '#FF6666', '#FF1493']
+CMAPS = ['Blues', 'OrRd', 'Greens', 'Purples', 'YlOrBr',
+         'BuPu', 'Reds', 'RdPu']
 
-METHOD_TITLES = {
-    'EJCPCFGM(σ,1)': r'EJCPCFGM($\sigma$, 1)',
-    'ARIMA': 'ARIMA',
-    'GM(1,1)': 'GM(1,1)',
-    'FAGM(1,1)': 'FAGM(1,1)',
-    'JFGM(r,s,ad,1)': r'JFGM($r$,$s$,$ad$,1)',
-    'NGBM(1,1)': 'NGBM(1,1)',
-    'LSSVR': 'LSSVR',
-    'LSTM': 'LSTM'
+OUT = 'Comparison_Results'
+os.makedirs(OUT, exist_ok=True)
+
+# raw data
+JS_ELEC_TR = [3864.0, 4281.62, 4580.9, 4956.6, 5012.54, 5114.7,
+              5458.95, 5807.89, 6128.27, 6264.0, 6374.0, 7101.0]
+JS_ELEC_TE = [7400.0, 7833.0, 8486.93]
+JS_GEN_TR = [3359.18, 3762.5, 3928.4, 4320.68, 4347.57, 4361.0,
+             4709.37, 4914.74, 5085.08, 5166.43, 5217.54, 5968.89]
+JS_GEN_TE = [6077.31, 6390.53, 6807.37]
+AH_ELEC_TR = [1078.0, 1221.19, 1361.1, 1528.1, 1585.18, 1639.79,
+              1794.98, 1921.48, 2135.07, 2301.0, 2428.0, 2715.0]
+AH_ELEC_TE = [2993.0, 3214.0, 3597.86]
+AH_GEN_TR = [1443.85, 1635.35, 1767.5, 1970.04, 2033.91, 2062.0,
+             2252.69, 2456.28, 2734.49, 2886.67, 2808.98, 3083.39]
+AH_GEN_TE = [3298.77, 3549.45, 3863.46]
+
+# test predictions
+JS_ELEC_TEST = {
+    'EJCPCFGM': [7407.608189633539, 7894.959924285776, 8403.601864960316],
+    'ARIMA':    [7388.73432878311,  7676.466937730422,  7964.197826852214],
+    'GM':       [7249.814675415721, 7593.13946784148,   7952.722870779602],
+    'FAGM':     [7188.743764349012, 7502.395910694875,  7828.209990444389],
+    'JFGM':     [7051.361514950102, 7064.973761531043,  7115.885416039231],
+    'NGBM':     [7185.382893251095, 7498.934129206798,  7824.599608642617],
+    'LSSVR':    [7373.218287297232, 7903.999404499609,  8399.647765377220],
+    'LSTM':     [7379.2082426548,   7795.710643529892,  8332.381625175476],
+}
+JS_GEN_TEST = {
+    'EJCPCFGM': [6077.911814339277, 6453.134550115105, 6807.518187208025],
+    'ARIMA':    [6194.845587900419, 6420.783968343592,  6646.705142639939],
+    'GM':       [5945.387002621952, 6189.862531741383,  6444.390944602696],
+    'FAGM':     [5903.790322132794, 6128.321014239154,  6360.359248569635],
+    'JFGM':     [6324.778767928657, 6788.624275790886,  7408.774356028322],
+    'NGBM':     [5900.24509367509,  6124.514856371046,  6356.260353373844],
+    'LSSVR':    [6077.991586457474, 6185.879657201428,  6654.372724873308],
+    'LSTM':     [6069.93551294923,  6416.845301880838,  6890.326185096504],
+}
+AH_ELEC_TEST = {
+    'EJCPCFGM': [2982.536129900917, 3267.042834002283, 3600.817766995196],
+    'ARIMA':    [2906.60513220571,  3096.136309609006,  3283.615980922369],
+    'GM':       [2873.327257343313, 3100.514707493836,  3345.66535253419],
+    'FAGM':     [2854.642891735635, 3071.269628065773,  3303.804585061589],
+    'JFGM':     [2847.271731931781, 2972.387782401502,  3121.204429148443],
+    'NGBM':     [2852.48561407176,  3068.79416027337,   3300.913000322376],
+    'LSSVR':    [2936.339514526578, 3180.031197858185,  3436.869503510113],
+    'LSTM':     [2955.358112096786, 3236.821109414101,  3606.212228894234],
+}
+AH_GEN_TEST = {
+    'EJCPCFGM': [3299.183242524917, 3557.577242329377, 3849.548480746922],
+    'ARIMA':    [3226.673090043039, 3369.95546024994,   3513.23711062432],
+    'GM':       [3323.54095907908,  3536.023040897991,  3762.089620591294],
+    'FAGM':     [3279.046770736673, 3469.734186883656,  3670.449263223156],
+    'JFGM':     [3111.818522621683, 3168.173189827427,  3237.75400598374],
+    'NGBM':     [3283.063741747119, 3475.325402669729,  3677.762220973418],
+    'LSSVR':    [3306.250768177307, 3527.783808470721,  3666.957774906289],
+    'LSTM':     [3316.079136457443, 3478.41173563242,   3655.066207110881],
 }
 
-METHOD_COLORS = [
-    '#0066CC',
-    '#CC3300',
-    '#006633',
-    '#660099',
-    '#CC9900',
-    '#0099CC',
-    '#FF6666',
-    '#FF1493',
-]
-
-GRADIENT_CMAPS = [
-    'Blues',
-    'OrRd',
-    'Greens',
-    'Purples',
-    'YlOrBr',
-    'BuPu',
-    'Reds',
-    'RdPu',
-]
-
-OUTPUT_DIR = 'Comparison_Results'
-if not os.path.exists(OUTPUT_DIR):
-    os.makedirs(OUTPUT_DIR)
-
-
-JIANG_SU_ELEC_TRAIN = [3864.00, 4281.62, 4580.90, 4956.60, 5012.54, 5114.70, 5458.95, 5807.89, 6128.27, 6264.00, 6374.00, 7101.00]
-JIANG_SU_ELEC_TEST = [7400.00, 7833.00, 8486.93]
-
-JIANG_SU_GEN_TRAIN = [3359.18, 3762.50, 3928.40, 4320.68, 4347.57, 4361.00, 4709.37, 4914.74, 5085.08, 5166.43, 5217.54, 5968.89]
-JIANG_SU_GEN_TEST = [6077.31, 6390.53, 6807.37]
-
-AN_HUI_ELEC_TRAIN = [1078.00, 1221.19, 1361.10, 1528.10, 1585.18, 1639.79, 1794.98, 1921.48, 2135.07, 2301.00, 2428.00, 2715.00]
-AN_HUI_ELEC_TEST = [2993.00, 3214.00, 3597.86]
-
-AN_HUI_GEN_TRAIN = [1443.85, 1635.35, 1767.50, 1970.04, 2033.91, 2062.00, 2252.69, 2456.28, 2734.49, 2886.67, 2808.98, 3083.39]
-AN_HUI_GEN_TEST = [3298.77, 3549.45, 3863.46]
-
-JIANG_SU_ELEC_7M = {
-    'ARIMA': [7388.73432878311, 7676.466937730422, 7964.197826852214],
-    'GM(1,1)': [7249.81467541575, 7593.13946784148, 7952.722870779544],
-    'FAGM(1,1)': [7294.351452172894, 7655.1200027342275, 8034.547224081136],
-    'JFGM(r,s,ad,1)': [7130.981436426216, 7350.425436006854, 7562.637236704915],
-    'NGBM(1,1)': [7185.382893251095, 7498.934129206798, 7824.599608642617],
-    'LSSVR': [7229.9958801401135, 7474.736594518214, 7703.118730420734],
-    'LSTM': [7283.2353515625, 7607.91357421875, 7918.06103515625]
+# train fitted (grey models offset=1, LSSVR/LSTM have window offsets)
+JS_ELEC_FIT = {
+    'EJCPCFGM': {2010: 3864.0, 2011: 4266.335801344989, 2012: 4580.900065210123, 2013: 4948.028628241317,
+        2014: 5012.539923801735, 2015: 5157.437122202914, 2016: 5423.911278814826, 2017: 5816.671559565334,
+        2018: 6128.270724613983, 2019: 6264.000400681588, 2020: 6375.227177218667, 2021: 7093.00467921681},
+    'ARIMA':    {2010: 3864.0, 2011: 4052.225449481301, 2012: 4602.945129655827, 2013: 4894.128618554566,
+        2014: 5286.605021355744, 2015: 5284.517263195692, 2016: 5357.002007448712, 2017: 5716.416111236608,
+        2018: 6077.201003269165, 2019: 6403.435457163536, 2020: 6524.817852953846, 2021: 6620.744806063129},
+    'GM':       {2010: 3864.0, 2011: 4358.004897018516, 2012: 4564.384120991323, 2013: 4780.536712616173,
+        2014: 5006.92550295424,  2015: 5244.035241058606, 2016: 5492.373631930153, 2017: 5752.472423627725,
+        2018: 6024.888545859678, 2019: 6310.205302494811, 2020: 6609.033620546776, 2021: 6922.013358305208},
+    'FAGM':     {2010: 3864.0, 2011: 4282.578733324443, 2012: 4544.30640464131,  2013: 4789.732868900755,
+        2014: 5031.849513474554, 2015: 5275.90157292298,  2016: 5524.663388876063, 2017: 5779.876124682269,
+        2018: 6042.778308855493, 2019: 6314.339667132328, 2020: 6595.377502296004, 2021: 6886.62009099828},
+    'JFGM':     {2010: 3864.0, 2011: 4215.222560490907, 2012: 4539.374251146059, 2013: 4839.415347385203,
+        2014: 5117.33176627051,  2015: 5374.822961921038, 2016: 5613.420313104954, 2017: 5834.525758104778,
+        2018: 6039.43058864781,  2019: 6229.327448471887, 2020: 6405.319385668407, 2021: 7100.999999900997},
+    'NGBM':     {2010: 3864.0, 2011: 4281.630082632608, 2012: 4543.328519230601, 2013: 4788.067315599494,
+        2014: 5029.621151506602, 2015: 5273.28031558602,  2016: 5521.784035018463, 2017: 5776.834763953149,
+        2018: 6039.638631768488, 2019: 6311.139075846782, 2020: 6592.131693525298, 2021: 6883.326279777059},
+    'LSSVR':    {2012: 4580.759654445408, 2013: 4840.715249661074, 2014: 5150.996269701304, 2015: 5304.982907000081,
+        2016: 5390.710004956574, 2017: 5658.157826828721, 2018: 6032.755244109680, 2019: 6407.248456577699,
+        2020: 6645.508492895566, 2021: 6787.015893824293},
+    'LSTM':     {2014: 4971.18017578125, 2015: 5249.58740234375, 2016: 5470.8125, 2017: 5703.5224609375,
+        2018: 5935.73583984375, 2019: 6267.974609375, 2020: 6650.01953125, 2021: 6976.18701171875},
 }
 
-JIANG_SU_GEN_7M = {
-    'ARIMA': [6194.845587900419, 6420.783968343592, 6646.705142639939],
-    'GM(1,1)': [5945.387002621952, 6189.862531741383, 6444.390944602666],
-    'FAGM(1,1)': [5745.4317632462335, 5917.187760995272, 6090.192606964934],
-    'JFGM(r,s,ad,1)': [5704.142928238412, 5792.819848092031, 5871.81949228004],
-    'NGBM(1,1)': [5900.24509367509, 6124.514856371046, 6356.260353373844],
-    'LSSVR': [5881.211632573809, 6046.010721802026, 6258.02589446504],
-    'LSTM': [6012.54736328125, 6277.89453125, 6550.9580078125]
+JS_GEN_FIT = {
+    'EJCPCFGM': {2010: 3359.18, 2011: 3762.500806445722, 2012: 3928.398165070494, 2013: 4320.68183444567,
+        2014: 4347.591618395511, 2015: 4361.54214711563, 2016: 4709.368320621098, 2017: 4894.83206445309,
+        2018: 5110.290135670463, 2019: 5166.427431609142, 2020: 5213.068534951845, 2021: 5965.149944203075},
+    'ARIMA':    {2010: 3359.18, 2011: 3484.80379285727, 2012: 4011.984881814805, 2013: 4152.080822824808,
+        2014: 4584.099940048423, 2015: 4565.824233460259, 2016: 4546.395540001947, 2017: 4917.28438146843,
+        2018: 5122.329284510116, 2019: 5288.613397785421, 2020: 5357.981569852058, 2021: 5396.53639371393},
+    'GM':       {2010: 3359.18, 2011: 3816.546059048414, 2012: 3973.483213313215, 2013: 4136.873655448187,
+        2014: 4306.98274596993, 2015: 4484.086757073776, 2016: 4668.473321324273, 2017: 4860.441898795732,
+        2018: 5060.30426342196, 2019: 5268.385009344798, 2020: 5485.022078083304, 2021: 5710.567307381192},
+    'FAGM':     {2010: 3359.18, 2011: 3761.961394444282, 2012: 3959.736131547144, 2013: 4144.192514740676,
+        2014: 4325.380219881044, 2015: 4507.200699040292, 2016: 4691.663774485714, 2017: 4879.997003049517,
+        2018: 5073.047955594895, 2019: 5271.459796599891, 2020: 5475.758073570098, 2021: 5686.397711279278},
+    'JFGM':     {2010: 3359.18, 2011: 3683.347809030426, 2012: 3965.040655886873, 2013: 4210.447460006436,
+        2014: 4424.373454865805, 2015: 4610.902582423236, 2016: 4773.564429835742, 2017: 4915.424759691604,
+        2018: 5039.151586793104, 2019: 5147.068802521607, 2020: 5241.20145278034, 2021: 5968.889999726461},
+    'NGBM':     {2010: 3359.18, 2011: 3762.497612615147, 2012: 3959.721207852979, 2013: 4143.468911489574,
+        2014: 4324.082039315166, 2015: 4505.455387068698, 2016: 4689.564767461266, 2017: 4877.607993028756,
+        2018: 5070.409454005356, 2019: 5268.594243336331, 2020: 5472.673431811578, 2021: 5683.089944070009},
+    'LSSVR':    {2014: 4296.432810450791, 2015: 4446.403401003254, 2016: 4678.216072787442, 2017: 4956.234619572186,
+        2018: 4983.367113133030, 2019: 5178.505249884814, 2020: 5501.465647596076, 2021: 5729.995085572330},
+    'LSTM':     {2014: 4202.04248046875, 2015: 4457.01904296875, 2016: 4635.56884765625, 2017: 4856.25927734375,
+        2018: 5022.0771484375, 2019: 5258.3232421875, 2020: 5556.67333984375, 2021: 5757.126953125},
 }
 
-AN_HUI_ELEC_7M = {
-    'ARIMA': [2906.6051322057097, 3096.1363096090063, 3283.6159809223686],
-    'GM(1,1)': [2873.327257343306, 3100.5147074938286, 3345.66535253419],
-    'FAGM(1,1)': [2956.5239948669005, 3221.1956095085225, 3511.025856858476],
-    'JFGM(r,s,ad,1)': [2947.49836103533, 3206.181052359905, 3489.107147136696],
-    'NGBM(1,1)': [2852.48561407176, 3068.79416027337, 3300.9130003223763],
-    'LSSVR': [2871.915715923475, 3038.591837633166, 3148.4198632178127],
-    'LSTM': [2974.8818359375, 3251.69970703125, 3514.572021484375]
+AH_ELEC_FIT = {
+    'EJCPCFGM': {2010: 1078.0, 2011: 1221.190449640878, 2012: 1361.08902480034, 2013: 1528.083101479398,
+        2014: 1585.135789795294, 2015: 1641.011415865888, 2016: 1792.461547980023, 2017: 1923.461839512843,
+        2018: 2134.488069550681, 2019: 2300.976389398653, 2020: 2428.038761996867, 2021: 2715.022023497421},
+    'ARIMA':    {2010: 1078.0, 2011: 1107.010878743183, 2012: 1351.714325743899, 2013: 1495.042376744821,
+        2014: 1674.189418237302, 2015: 1696.346505680962, 2016: 1729.370582985018, 2017: 1906.86478953756,
+        2018: 2037.304812347734, 2019: 2284.007306588134, 2020: 2454.292006242542, 2021: 2570.40462785317},
+    'GM':       {2010: 1078.0, 2011: 1244.083010105514, 2012: 1342.449823742609, 2013: 1448.594277574535,
+        2014: 1563.131331919372, 2015: 1686.724570608621, 2016: 1820.090045537894, 2017: 1964.000425197344,
+        2018: 2119.289471217009, 2019: 2286.856868862425, 2020: 2467.673439466515, 2021: 2662.786764996636},
+    'FAGM':     {2010: 1078.0, 2011: 1221.216516108796, 2012: 1334.677920514585, 2013: 1449.306411164212,
+        2014: 1568.831935736126, 2015: 1695.066823247072, 2016: 1829.237772218789, 2017: 1972.353843595884,
+        2018: 2125.344265994259, 2019: 2289.121076124602, 2020: 2464.612238570026, 2021: 2652.78166064894},
+    'JFGM':     {2010: 1078.0, 2011: 1198.463038325265, 2012: 1321.826815909658, 2013: 1448.487150112238,
+        2014: 1578.610718529031, 2015: 1712.322343905717, 2016: 1849.735328459092, 2017: 1990.959915585267,
+        2018: 2136.106417169656, 2019: 2285.286607400064, 2020: 2438.614441528007, 2021: 2761.353407955106},
+    'NGBM':     {2010: 1078.0, 2011: 1221.191715320665, 2012: 1334.274041481718, 2013: 1448.521607021842,
+        2014: 1567.785316450516, 2015: 1693.846701788205, 2016: 1827.898666323072, 2017: 1970.923292035121,
+        2018: 2123.827988584215, 2019: 2287.506079704357, 2020: 2462.868457882993, 2021: 2650.862607585983},
+    'LSSVR':    {2014: 1549.933727180862, 2015: 1691.838628627295, 2016: 1811.711422563538, 2017: 1952.209115258796,
+        2018: 2082.279115023979, 2019: 2271.929441158338, 2020: 2482.230407577933, 2021: 2678.368142609296},
+    'LSTM':     {2013: 1458.514038085938, 2014: 1593.633056640625, 2015: 1728.464599609375, 2016: 1845.348754882812,
+        2017: 1929.575805664062, 2018: 2051.0966796875, 2019: 2245.695556640625, 2020: 2461.42626953125,
+        2021: 2712.145751953125},
 }
 
-AN_HUI_GEN_7M = {
-    'ARIMA': [3226.673090043039, 3369.95546024994, 3513.23711062432],
-    'GM(1,1)': [3323.5409590790805, 3536.023040897984, 3762.0896205913014],
-    'FAGM(1,1)': [3255.368070615772, 3434.516358342131, 3621.8390844004753],
-    'JFGM(r,s,ad,1)': [3496.0172281190316, 3753.3874135366787, 4030.005823773914],
-    'NGBM(1,1)': [3283.063741747119, 3475.3254026697286, 3677.762220973418],
-    'LSSVR': [3207.615067510485, 3308.202157550096, 3340.0970632672443],
-    'LSTM': [3251.416748046875, 3378.757080078125, 3476.470703125]
+AH_GEN_FIT = {
+    'EJCPCFGM': {2010: 1443.85, 2011: 1635.733288734264, 2012: 1765.523466231721, 2013: 1969.848407786529,
+        2014: 2033.91000467488, 2015: 2073.726167991039, 2016: 2241.865588346447, 2017: 2456.280013484319,
+        2018: 2734.490049528901, 2019: 2889.059362608547, 2020: 2808.375637552667, 2021: 3083.389997988932},
+    'ARIMA':    {2010: 1443.85, 2011: 1473.340686699801, 2012: 1768.875700803027, 2013: 1900.487065057112,
+        2014: 2122.579437018552, 2015: 2166.990602309486, 2016: 2176.185239449737, 2017: 2378.543895175678,
+        2018: 2592.422089658454, 2019: 2887.238948365097, 2020: 3039.358624966932, 2021: 2939.834304717372},
+    'GM':       {2010: 1443.85, 2011: 1680.917798278857, 2012: 1788.382973988235, 2013: 1902.71866055904,
+        2014: 2024.364106512348, 2015: 2153.786642598803, 2016: 2291.483477164045, 2017: 2437.983606296315,
+        2018: 2593.849846094279, 2019: 2759.680994862931, 2020: 2936.114133543742, 2021: 3123.82707321702},
+    'FAGM':     {2010: 1443.85, 2011: 1635.319826612651, 2012: 1775.163453602981, 2013: 1907.25896791656,
+        2014: 2038.795644772917, 2015: 2172.825483365836, 2016: 2311.049930505598, 2017: 2454.605927487819,
+        2018: 2604.36047837664, 2019: 2761.04192199779, 2020: 2925.306014383259, 2021: 3097.772465258106},
+    'JFGM':     {2010: 1443.85, 2011: 1615.554073972198, 2012: 1778.480529933467, 2013: 1933.415291897785,
+        2014: 2080.824815586862, 2015: 2221.100780759565, 2016: 2354.599873459091, 2017: 2481.655233975867,
+        2018: 2602.581037855537, 2019: 2717.674846932209, 2020: 2827.219081614919, 2021: 3083.390000029255},
+    'NGBM':     {2010: 1443.85, 2011: 1635.350683247691, 2012: 1774.176904659454, 2013: 1905.431472814224,
+        2014: 2036.57176155527, 2015: 2170.577154106748, 2016: 2309.077119030995, 2017: 2453.157750431137,
+        2018: 2603.651433160408, 2019: 2761.262853223005, 2020: 2926.631488753726, 2021: 3100.36583483201},
+    'LSSVR':    {2014: 2034.377409174505, 2015: 2177.553108722527, 2016: 2283.838102156456, 2017: 2455.095995924579,
+        2018: 2586.256761814418, 2019: 2764.893603188440, 2020: 2956.593588664357, 2021: 3059.801430354829},
+    'LSTM':     {2014: 2091.615966796875, 2015: 2215.963623046875, 2016: 2314.16796875, 2017: 2424.390380859375,
+        2018: 2539.944091796875, 2019: 2716.583251953125, 2020: 2947.0322265625, 2021: 3130.650390625},
 }
 
-JIANG_SU_ELEC_EJCPCFGM_TRAIN_FIT = [3864.00, 4281.5636, 4581.0841, 4818.8895, 5019.2523, 5223.3969, 5444.8243, 5807.8745, 6088.1660, 6320.9783, 6374.0037, 6971.5078]
-JIANG_SU_ELEC_EJCPCFGM_TEST_PRE = [7384.6889, 7843.0550, 8352.1323]
-JIANG_SU_ELEC_EJCPCFGM_MAPE_S = 0.7241
-JIANG_SU_ELEC_EJCPCFGM_MAPE_P = 0.6412
-
-JIANG_SU_GEN_EJCPCFGM_TRAIN_FIT = [3359.18, 3809.9678, 3902.7677, 4320.68, 4347.57, 4361.00, 4709.37, 4914.7391, 5045.8657, 5240.6237, 5479.3026, 5754.8955]
-JIANG_SU_GEN_EJCPCFGM_TEST_PRE = [6066.2584, 6415.0864, 6804.5923]
-JIANG_SU_GEN_EJCPCFGM_MAPE_S = 1.0603
-JIANG_SU_GEN_EJCPCFGM_MAPE_P = 0.2023
-
-AN_HUI_ELEC_EJCPCFGM_TRAIN_FIT = [1078.00, 1221.19, 1361.10, 1501.0252, 1585.18, 1681.4298, 1793.0858, 1921.48, 2131.4184, 2294.8866, 2490.2313, 2715.00]
-AN_HUI_ELEC_EJCPCFGM_TEST_PRE = [2972.0277, 3265.2654, 3599.4838]
-AN_HUI_ELEC_EJCPCFGM_MAPE_S = 0.6180
-AN_HUI_ELEC_EJCPCFGM_MAPE_P = 0.7803
-
-AN_HUI_GEN_EJCPCFGM_TRAIN_FIT = [1443.85, 1674.3599, 1728.6254, 1970.0399, 2043.5217, 2061.0053, 2252.69, 2444.0822, 2734.4896, 2886.6702, 2913.6580, 3088.9147]
-AN_HUI_GEN_EJCPCFGM_TEST_PRE = [3301.4917, 3542.7013, 3813.8510]
-AN_HUI_GEN_EJCPCFGM_MAPE_S = 0.7923
-AN_HUI_GEN_EJCPCFGM_MAPE_P = 0.5189
+TEST_MAPE = {
+    ('Jiangsu', 'Elec'): {'EJCPCFGM': 0.6252, 'ARIMA': 2.7700, 'GM': 3.7954, 'FAGM': 4.9457,
+        'JFGM': 10.2237, 'NGBM': 4.9897, 'LSSVR': 0.7656, 'LSTM': 0.8593},
+    ('Jiangsu', 'Gen'):  {'EJCPCFGM': 0.3306, 'ARIMA': 1.5892, 'GM': 3.5477, 'FAGM': 4.5083,
+        'JFGM': 6.3787, 'NGBM': 4.5677, 'LSSVR': 1.3563, 'LSTM': 0.5839},
+    ('Anhui', 'Elec'):   {'EJCPCFGM': 0.6941, 'ARIMA': 5.0960, 'GM': 4.8463, 'FAGM': 5.7455,
+        'JFGM': 8.5449, 'NGBM': 5.8220, 'LSSVR': 2.4749, 'LSTM': 0.7333},
+    ('Anhui', 'Gen'):    {'EJCPCFGM': 0.2005, 'ARIMA': 5.4358, 'GM': 1.2510, 'FAGM': 2.6132,
+        'JFGM': 10.8682, 'NGBM': 2.4570, 'LSSVR': 1.9745, 'LSTM': 2.6400},
+}
 
 
-def build_all_results():
-    all_results = {}
-
-    key = ('Jiangsu', 'Elec')
-    all_results[key] = {
-        'province': 'Jiangsu',
-        'indicator': 'Elec',
-        'train_actual': dict(zip(TRAIN_YEARS, JIANG_SU_ELEC_TRAIN)),
-        'test_actual': dict(zip(TEST_YEARS, JIANG_SU_ELEC_TEST)),
-        'methods': {
-            'EJCPCFGM(σ,1)': {
-                'train_fitted': dict(zip(TRAIN_YEARS, JIANG_SU_ELEC_EJCPCFGM_TRAIN_FIT)),
-                'test_predicted': dict(zip(TEST_YEARS, JIANG_SU_ELEC_EJCPCFGM_TEST_PRE)),
-                'full_fitted': dict(zip(ALL_YEARS, JIANG_SU_ELEC_EJCPCFGM_TRAIN_FIT + JIANG_SU_ELEC_EJCPCFGM_TEST_PRE)),
-                'mape_s': JIANG_SU_ELEC_EJCPCFGM_MAPE_S,
-                'mape_p': JIANG_SU_ELEC_EJCPCFGM_MAPE_P
-            }
-        }
+def build():
+    return {
+        ('Jiangsu', 'Elec'): dict(train=dict(zip(TRAIN_YEARS, JS_ELEC_TR)),
+                                   test=dict(zip(TEST_YEARS, JS_ELEC_TE)),
+                                   fit=JS_ELEC_FIT, pred=JS_ELEC_TEST),
+        ('Jiangsu', 'Gen'):  dict(train=dict(zip(TRAIN_YEARS, JS_GEN_TR)),
+                                   test=dict(zip(TEST_YEARS, JS_GEN_TE)),
+                                   fit=JS_GEN_FIT, pred=JS_GEN_TEST),
+        ('Anhui', 'Elec'):   dict(train=dict(zip(TRAIN_YEARS, AH_ELEC_TR)),
+                                   test=dict(zip(TEST_YEARS, AH_ELEC_TE)),
+                                   fit=AH_ELEC_FIT, pred=AH_ELEC_TEST),
+        ('Anhui', 'Gen'):    dict(train=dict(zip(TRAIN_YEARS, AH_GEN_TR)),
+                                   test=dict(zip(TEST_YEARS, AH_GEN_TE)),
+                                   fit=AH_GEN_FIT, pred=AH_GEN_TEST),
     }
-    for method, preds in JIANG_SU_ELEC_7M.items():
-        all_results[key]['methods'][method] = {
-            'train_fitted': {},
-            'test_predicted': dict(zip(TEST_YEARS, preds)),
-            'full_fitted': {},
-            'mape_s': None,
-            'mape_p': None
-        }
-
-    key = ('Jiangsu', 'Gen')
-    all_results[key] = {
-        'province': 'Jiangsu',
-        'indicator': 'Gen',
-        'train_actual': dict(zip(TRAIN_YEARS, JIANG_SU_GEN_TRAIN)),
-        'test_actual': dict(zip(TEST_YEARS, JIANG_SU_GEN_TEST)),
-        'methods': {
-            'EJCPCFGM(σ,1)': {
-                'train_fitted': dict(zip(TRAIN_YEARS, JIANG_SU_GEN_EJCPCFGM_TRAIN_FIT)),
-                'test_predicted': dict(zip(TEST_YEARS, JIANG_SU_GEN_EJCPCFGM_TEST_PRE)),
-                'full_fitted': dict(zip(ALL_YEARS, JIANG_SU_GEN_EJCPCFGM_TRAIN_FIT + JIANG_SU_GEN_EJCPCFGM_TEST_PRE)),
-                'mape_s': JIANG_SU_GEN_EJCPCFGM_MAPE_S,
-                'mape_p': JIANG_SU_GEN_EJCPCFGM_MAPE_P
-            }
-        }
-    }
-    for method, preds in JIANG_SU_GEN_7M.items():
-        all_results[key]['methods'][method] = {
-            'train_fitted': {},
-            'test_predicted': dict(zip(TEST_YEARS, preds)),
-            'full_fitted': {},
-            'mape_s': None,
-            'mape_p': None
-        }
-
-    key = ('Anhui', 'Elec')
-    all_results[key] = {
-        'province': 'Anhui',
-        'indicator': 'Elec',
-        'train_actual': dict(zip(TRAIN_YEARS, AN_HUI_ELEC_TRAIN)),
-        'test_actual': dict(zip(TEST_YEARS, AN_HUI_ELEC_TEST)),
-        'methods': {
-            'EJCPCFGM(σ,1)': {
-                'train_fitted': dict(zip(TRAIN_YEARS, AN_HUI_ELEC_EJCPCFGM_TRAIN_FIT)),
-                'test_predicted': dict(zip(TEST_YEARS, AN_HUI_ELEC_EJCPCFGM_TEST_PRE)),
-                'full_fitted': dict(zip(ALL_YEARS, AN_HUI_ELEC_EJCPCFGM_TRAIN_FIT + AN_HUI_ELEC_EJCPCFGM_TEST_PRE)),
-                'mape_s': AN_HUI_ELEC_EJCPCFGM_MAPE_S,
-                'mape_p': AN_HUI_ELEC_EJCPCFGM_MAPE_P
-            }
-        }
-    }
-    for method, preds in AN_HUI_ELEC_7M.items():
-        all_results[key]['methods'][method] = {
-            'train_fitted': {},
-            'test_predicted': dict(zip(TEST_YEARS, preds)),
-            'full_fitted': {},
-            'mape_s': None,
-            'mape_p': None
-        }
-
-    key = ('Anhui', 'Gen')
-    all_results[key] = {
-        'province': 'Anhui',
-        'indicator': 'Gen',
-        'train_actual': dict(zip(TRAIN_YEARS, AN_HUI_GEN_TRAIN)),
-        'test_actual': dict(zip(TEST_YEARS, AN_HUI_GEN_TEST)),
-        'methods': {
-            'EJCPCFGM(σ,1)': {
-                'train_fitted': dict(zip(TRAIN_YEARS, AN_HUI_GEN_EJCPCFGM_TRAIN_FIT)),
-                'test_predicted': dict(zip(TEST_YEARS, AN_HUI_GEN_EJCPCFGM_TEST_PRE)),
-                'full_fitted': dict(zip(ALL_YEARS, AN_HUI_GEN_EJCPCFGM_TRAIN_FIT + AN_HUI_GEN_EJCPCFGM_TEST_PRE)),
-                'mape_s': AN_HUI_GEN_EJCPCFGM_MAPE_S,
-                'mape_p': AN_HUI_GEN_EJCPCFGM_MAPE_P
-            }
-        }
-    }
-    for method, preds in AN_HUI_GEN_7M.items():
-        all_results[key]['methods'][method] = {
-            'train_fitted': {},
-            'test_predicted': dict(zip(TEST_YEARS, preds)),
-            'full_fitted': {},
-            'mape_s': None,
-            'mape_p': None
-        }
-
-    return all_results
 
 
-def calculate_mapes(method_data, train_actual, test_actual):
-    train_fitted = method_data.get('train_fitted', {})
-    test_predicted = method_data.get('test_predicted', {})
-
-    ape_s_list = []
-    for year, actual in train_actual.items():
-        fitted = train_fitted.get(year)
-        if fitted is not None and actual != 0:
-            ape = abs((actual - fitted) / actual) * 100
-            ape_s_list.append((year, actual, fitted, ape))
-
-    mape_s = np.mean([x[3] for x in ape_s_list]) if ape_s_list else None
-
-    ape_p_list = []
-    for year, actual in test_actual.items():
-        predicted = test_predicted.get(year)
-        if predicted is not None and actual != 0:
-            ape = abs((actual - predicted) / actual) * 100
-            ape_p_list.append((year, actual, predicted, ape))
-
-    mape_p = np.mean([x[3] for x in ape_p_list]) if ape_p_list else None
-
-    all_apes = [x[3] for x in ape_s_list] + [x[3] for x in ape_p_list]
-    mape = np.mean(all_apes) if all_apes else None
-
-    return mape_s, mape_p, mape, ape_s_list, ape_p_list
-
-
-def add_radial_gradient(ax, cmap_name='Blues'):
-    xlim = ax.get_xlim()
-    ylim = ax.get_ylim()
-
+def add_gradient(ax, cmap_name):
+    xlim, ylim = ax.get_xlim(), ax.get_ylim()
     x = np.linspace(xlim[0], xlim[1], 200)
     y = np.linspace(ylim[0], ylim[1], 200)
     X, Y = np.meshgrid(x, y)
-
-    y_min = ylim[0]
-    y_max = ylim[1]
-    Y_norm = (Y - y_min) / (y_max - y_min)
-
-    intensity = Y_norm ** 0.7
-    intensity = np.clip(intensity, 0.05, 0.8)
-
+    intensity = np.clip(((Y - ylim[0]) / (ylim[1] - ylim[0])) ** 0.7, 0.05, 0.8)
     cmap = plt.cm.get_cmap(cmap_name)
-    Z = intensity * 0.6
-    rgba = cmap(Z)
+    rgba = cmap(intensity * 0.6)
     rgba[..., 3] = intensity * 0.4
-
-    ax.imshow(rgba, extent=[xlim[0], xlim[1], ylim[0], ylim[1]],
-             origin='lower', aspect='auto', zorder=0)
-
-    ax.set_xlim(xlim)
-    ax.set_ylim(ylim)
+    ax.imshow(rgba, extent=[*xlim, *ylim], origin='lower', aspect='auto', zorder=0)
+    ax.set_xlim(xlim); ax.set_ylim(ylim)
 
 
-def plot_province_indicator(data, province_en, indicator_en):
-    n_methods = 8
-    n_cols = 4
-    n_rows = 2
-
+def plot_one(d, prov, ind):
     fig = plt.figure(figsize=(22, 11))
     fig.patch.set_facecolor('white')
 
-    for idx, method in enumerate(METHOD_NAMES):
-        row = idx // n_cols
-        col = idx % n_cols
+    for idx, method in enumerate(METHODS):
+        ax = fig.add_subplot(2, 4, idx + 1)
+        color, cmap_name = COLORS[idx], CMAPS[idx]
 
-        ax = fig.add_subplot(n_rows, n_cols, idx + 1)
-
-        color = METHOD_COLORS[idx]
-        cmap_name = GRADIENT_CMAPS[idx]
-
-        method_data = data['methods'].get(method, {})
-        full_fitted = method_data.get('full_fitted', {})
-        test_mape = method_data.get('mape_p')
-
-        train_actual = data['train_actual']
-        test_actual = data['test_actual']
-
-        train_years = sorted(train_actual.keys())
-        test_years = sorted(test_actual.keys())
-        all_years = train_years + test_years
-
-        train_vals = [train_actual[y] for y in train_years]
-        test_vals = [test_actual[y] for y in test_years]
-        all_vals = train_vals + test_vals
-
-        fitted_years = sorted(full_fitted.keys())
-        fitted_vals = [full_fitted[y] for y in fitted_years]
-
-        y_max = max(all_vals) * 1.12
-        y_min = min(all_vals) * 0.88
+        all_years = TRAIN_YEARS + TEST_YEARS
+        all_vals = [d['train'][y] for y in TRAIN_YEARS] + [d['test'][y] for y in TEST_YEARS]
+        y_max, y_min = max(all_vals) * 1.12, min(all_vals) * 0.88
 
         ax.set_facecolor('#FAFAFA')
         ax.set_xlim(2009.5, 2024.5)
         ax.set_ylim(y_min, y_max)
-        add_radial_gradient(ax, cmap_name)
+        add_gradient(ax, cmap_name)
 
         ax.plot(all_years, all_vals, '-', color='#1a1a1a', linewidth=2.0,
                 zorder=6, solid_capstyle='round', solid_joinstyle='round')
-
         for x, y in zip(all_years, all_vals):
-            ax.scatter(x+0.08, y-0.08*(y_max-y_min)/15, c='gray', s=60, zorder=7,
-                      alpha=0.35, edgecolors='none')
-            ax.scatter(x, y, c='white', s=60, zorder=8, edgecolors='#1a1a1a', linewidth=1.5)
-            ax.scatter(x, y, c='#1a1a1a', s=40, zorder=9, edgecolors='none')
+            ax.scatter(x, y, c='#1a1a1a', s=40, zorder=9)
 
-        if fitted_years and len(fitted_vals) > 0:
-            actual_for_fitted = [train_actual.get(y, test_actual.get(y, np.nan)) for y in fitted_years]
+        fit = d['fit'].get(method, {})
+        yrs, vals = [], []
+        for y in TRAIN_YEARS:
+            v = fit.get(y)
+            if v is not None:
+                yrs.append(y); vals.append(v)
+        for y, v in zip(TEST_YEARS, d['pred'].get(method, [])):
+            yrs.append(y); vals.append(v)
 
-            ax.plot(fitted_years, fitted_vals, '-', color=color, linewidth=3.5,
-                    alpha=0.95, zorder=5, solid_capstyle='round', solid_joinstyle='round',
-                    path_effects=[pe.Stroke(linewidth=4.5, foreground='white'),
-                                  pe.Normal()])
-
-            for x, y in zip(fitted_years, fitted_vals):
-                ax.scatter(x+0.08, y-0.08*(y_max-y_min)/15, c='gray', s=70, zorder=6,
-                          alpha=0.3, edgecolors='none')
-                ax.scatter(x, y, c='white', s=70, zorder=7, edgecolors=color, linewidth=2)
+        if vals:
+            ax.plot(yrs, vals, '-', color=color, linewidth=3.5, alpha=0.95, zorder=5,
+                    path_effects=[pe.Stroke(linewidth=4.5, foreground='white'), pe.Normal()])
+            for x, y in zip(yrs, vals):
                 ax.scatter(x, y, c=color, s=55, marker='D', zorder=8, edgecolors='none')
 
-        ax.axvline(x=2021.5, color='#666666', linestyle='--', alpha=0.7,
-                   linewidth=2, zorder=3)
+        ax.axvline(x=2021.5, color='#666', linestyle='--', alpha=0.7, linewidth=2, zorder=3)
+        ax.text(2015.5, y_max * 0.96, 'Training', ha='center', fontsize=10, color='#555',
+                style='italic', fontweight='bold', zorder=15)
+        ax.text(2023, y_max * 0.96, 'Testing', ha='center', fontsize=10, color='#555',
+                style='italic', fontweight='bold', zorder=15)
 
-        ax.text(2015.5, y_max * 0.96, 'Training', ha='center', fontsize=10,
-                color='#555555', style='italic', fontweight='bold', zorder=15)
-        ax.text(2023, y_max * 0.96, 'Testing', ha='center', fontsize=10,
-                color='#555555', style='italic', fontweight='bold', zorder=15)
-
-        mape_p = method_data.get('mape_p')
-        display_title = METHOD_TITLES.get(method, method)
-        mape_p_str = f'MAPE$_p$: {mape_p:.2f}%' if mape_p else 'MAPE$_p$: N/A'
-        ax.set_title(f'{display_title}\n{mape_p_str}', fontsize=12, fontweight='bold',
-                     color=color, pad=10, zorder=20)
-
-        ax.set_xlabel('Year', fontsize=10, color='#333333', fontweight='bold', labelpad=5)
-        ax.set_ylabel('Value', fontsize=10, color='#333333', fontweight='bold', labelpad=5)
-
-        ax.tick_params(colors='#333333', labelsize=9)
+        ax.set_title(method, fontsize=16, fontweight='bold', color=color, pad=10, zorder=20)
+        ax.set_xlabel('Year', fontsize=10)
+        ax.set_ylabel('Value', fontsize=10)
         ax.set_xticks([2010, 2015, 2020, 2024])
-
-        for spine in ax.spines.values():
-            spine.set_color('#333333')
-            spine.set_linewidth(2)
-            spine.set_zorder(10)
-
-        ax.grid(True, linestyle='-', alpha=0.15, color='#888888', zorder=1,
-                which='major', axis='both')
+        ax.tick_params(labelsize=9)
+        for s in ax.spines.values():
+            s.set_color('#333'); s.set_linewidth(2)
+        ax.grid(True, linestyle='-', alpha=0.15, color='#888', zorder=1)
         ax.set_axisbelow(True)
 
+    handles = [plt.Line2D([0], [0], color=COLORS[i], linewidth=3.5, marker='D', markersize=5,
+                          markerfacecolor=COLORS[i], markeredgecolor='white', label=m)
+               for i, m in enumerate(METHODS)]
+    fig.legend(handles, METHODS, loc='lower center', ncol=8, fontsize=14, frameon=True,
+               bbox_to_anchor=(0.5, 0.0), columnspacing=1.2)
     plt.tight_layout(pad=1.5, h_pad=2, w_pad=1.5)
+    plt.subplots_adjust(bottom=0.12)
 
-    filename = f'{province_en}_{indicator_en}.png'
-    filepath = os.path.join(OUTPUT_DIR, filename)
-    plt.savefig(filepath, dpi=250, bbox_inches='tight',
-                facecolor='white', edgecolor='none')
+    fp = os.path.join(OUT, f'{prov}_{ind}.png')
+    plt.savefig(fp, dpi=250, bbox_inches='tight', facecolor='white')
     plt.close()
-
-    print(f'Saved: {filepath}')
-
-
-def find_best_model(all_results):
-    print("\n" + "=" * 80)
-    print("Best Model Analysis")
-    print("=" * 80)
-
-    best_results = []
-
-    for key, data in all_results.items():
-        province = data['province']
-        indicator = data['indicator']
-
-        best_method = None
-        best_mape_p = float('inf')
-
-        for method in METHOD_NAMES:
-            if method in data['methods']:
-                method_data = data['methods'][method]
-                mape_p = method_data.get('mape_p')
-
-                if mape_p is None:
-                    test_actual = data['test_actual']
-                    test_predicted = method_data.get('test_predicted', {})
-                    ape_p_list = [abs((a - test_predicted.get(y, 0)) / a) * 100
-                                  for y, a in test_actual.items() if a != 0 and y in test_predicted]
-                    mape_p = np.mean(ape_p_list) if ape_p_list else None
-
-                if mape_p is not None and mape_p < best_mape_p:
-                    best_mape_p = mape_p
-                    best_method = method
-
-        if best_method:
-            method_data = data['methods'][best_method]
-            mape_s = method_data.get('mape_s')
-
-            if mape_s is None:
-                train_actual = data['train_actual']
-                train_fitted = method_data.get('train_fitted', {})
-                ape_s_list = [abs((a - train_fitted.get(y, 0)) / a) * 100
-                              for y, a in train_actual.items() if a != 0 and y in train_fitted]
-                mape_s = np.mean(ape_s_list) if ape_s_list else None
-
-            best_results.append({
-                'Province': province,
-                'Indicator': indicator,
-                'Best Method': best_method,
-                'MAPE_s(%)': round(mape_s, 4) if mape_s else '',
-                'MAPE_p(%)': round(best_mape_p, 4)
-            })
-            print(f"{province}-{indicator}: Best method is {best_method}, MAPE_s = {mape_s:.4f}%  |  MAPE_p = {best_mape_p:.4f}%" if mape_s else f"{province}-{indicator}: Best method is {best_method}, MAPE_p = {best_mape_p:.4f}%")
-
-    print("\n" + "-" * 70)
-    print("Best model count for each method:")
-    print("-" * 70)
-
-    method_best_count = {m: 0 for m in METHOD_NAMES}
-    for result in best_results:
-        method_best_count[result['Best Method']] += 1
-
-    sorted_methods = sorted(method_best_count.items(), key=lambda x: -x[1])
-    for method, count in sorted_methods:
-        bar = '*' * count
-        print(f"  {method:<18}: {count:>2} times {bar}")
-
-    print("\n" + "=" * 80)
-    print("Overall Ranking by Average MAPE_p:")
-    print("=" * 80)
-
-    method_avg_mape_p = {m: [] for m in METHOD_NAMES}
-    method_avg_mape_s = {m: [] for m in METHOD_NAMES}
-
-    for key, data in all_results.items():
-        for method in METHOD_NAMES:
-            if method in data['methods']:
-                method_data = data['methods'][method]
-
-                mape_p = method_data.get('mape_p')
-                if mape_p is None:
-                    test_actual = data['test_actual']
-                    test_predicted = method_data.get('test_predicted', {})
-                    ape_p_list = [abs((a - test_predicted.get(y, 0)) / a) * 100
-                                  for y, a in test_actual.items() if a != 0 and y in test_predicted]
-                    mape_p = np.mean(ape_p_list) if ape_p_list else None
-
-                if mape_p is not None:
-                    method_avg_mape_p[method].append(mape_p)
-
-                mape_s = method_data.get('mape_s')
-                if mape_s is None:
-                    train_actual = data['train_actual']
-                    train_fitted = method_data.get('train_fitted', {})
-                    ape_s_list = [abs((a - train_fitted.get(y, 0)) / a) * 100
-                                  for y, a in train_actual.items() if a != 0 and y in train_fitted]
-                    mape_s = np.mean(ape_s_list) if ape_s_list else None
-
-                if mape_s is not None:
-                    method_avg_mape_s[method].append(mape_s)
-
-    avg_mapes_p = {}
-    avg_mapes_s = {}
-    for method in METHOD_NAMES:
-        if method_avg_mape_p[method]:
-            avg_mapes_p[method] = np.mean(method_avg_mape_p[method])
-        if method_avg_mape_s[method]:
-            avg_mapes_s[method] = np.mean(method_avg_mape_s[method])
-
-    sorted_avg = sorted(avg_mapes_p.items(), key=lambda x: x[1])
-
-    print(f"\n{'Rank':<6} {'Method':<18} {'Avg MAPE_s(%)':<15} {'Avg MAPE_p(%)':<15} {'Visual'}")
-    print("-" * 70)
-
-    for rank, (method, avg_mape_p) in enumerate(sorted_avg, 1):
-        avg_mape_s = avg_mapes_s.get(method, 0)
-        blocks = '*' * (len(sorted_avg) - rank + 1)
-        print(f"{rank:<6} {method:<18} {avg_mape_s:>10.4f}%   {avg_mape_p:>10.4f}%   {blocks}")
-
-    overall_best = sorted_avg[0]
-    avg_mape_s_best = avg_mapes_s.get(overall_best[0], 0)
-    print(f"\nBest: {overall_best[0]}, Average MAPE_s = {avg_mape_s_best:.4f}%  |  Average MAPE_p = {overall_best[1]:.4f}%")
-
-    return best_results, avg_mapes_p, avg_mapes_s
-
-
-def print_summary_table(all_results):
-    print("\n" + "=" * 200)
-    print(" " * 70 + "8 Methods MAPE Comparison Summary (MAPE_s | MAPE_p)")
-    print("=" * 200)
-
-    header = f"{'Province-Indicator':<28}"
-    for method in METHOD_NAMES:
-        header += f"{method:>22}"
-    print(header)
-    print("-" * 200)
-
-    for key, data in all_results.items():
-        label = f"{data['province']}-{data['indicator']}"
-        row = f"{label:<28}"
-
-        for method in METHOD_NAMES:
-            if method in data['methods']:
-                method_data = data['methods'][method]
-                mape_s = method_data.get('mape_s')
-                mape_p = method_data.get('mape_p')
-
-                if mape_s is None:
-                    train_actual = data['train_actual']
-                    train_fitted = method_data.get('train_fitted', {})
-                    ape_s_list = [abs((a - train_fitted.get(y, 0)) / a) * 100
-                                  for y, a in train_actual.items() if a != 0 and y in train_fitted]
-                    mape_s = np.mean(ape_s_list) if ape_s_list else None
-
-                if mape_p is None:
-                    mape_p = method_data.get('mape_p')
-
-                if mape_s is not None and mape_p is not None:
-                    row += f"{mape_s:>9.2f}% | {mape_p:>7.2f}%"
-                elif mape_p is not None:
-                    row += f"{'N/A':>9}  | {mape_p:>7.2f}%"
-                else:
-                    row += f"{'N/A':>9}  | {'N/A':>7}"
-            else:
-                row += f"{'N/A':>22}"
-
-        print(row)
-
-    print("=" * 200)
-
-
-def save_combined_csv(all_results):
-    import pandas as pd
-    rows = []
-
-    for key, data in all_results.items():
-        province = data['province']
-        indicator = data['indicator']
-
-        for method in METHOD_NAMES:
-            if method not in data['methods']:
-                continue
-
-            method_data = data['methods'][method]
-            mape_s = method_data.get('mape_s')
-            mape_p = method_data.get('mape_p')
-
-            if mape_s is None:
-                train_actual = data['train_actual']
-                train_fitted = method_data.get('train_fitted', {})
-                ape_s_list = []
-                for year, actual in train_actual.items():
-                    fitted = train_fitted.get(year)
-                    if fitted is not None and actual != 0:
-                        ape = abs((actual - fitted) / actual) * 100
-                        ape_s_list.append(ape)
-                mape_s = np.mean(ape_s_list) if ape_s_list else None
-
-            if mape_p is None:
-                test_actual = data['test_actual']
-                test_predicted = method_data.get('test_predicted', {})
-                ape_p_list = []
-                for year, actual in test_actual.items():
-                    predicted = test_predicted.get(year)
-                    if predicted is not None and actual != 0:
-                        ape = abs((actual - predicted) / actual) * 100
-                        ape_p_list.append(ape)
-                mape_p = np.mean(ape_p_list) if ape_p_list else None
-
-            row = {
-                'Province': province,
-                'Indicator': indicator,
-                'Method': method,
-                'MAPE_s(%)': round(mape_s, 4) if mape_s is not None else '',
-                'MAPE_p(%)': round(mape_p, 4) if mape_p is not None else ''
-            }
-
-            for year in TRAIN_YEARS:
-                actual = data['train_actual'].get(year, '')
-                fitted = method_data.get('train_fitted', {}).get(year, '')
-                if actual != '' and fitted != '' and actual != 0:
-                    ape = abs((actual - fitted) / actual) * 100
-                    row[f'{year} APE(%)'] = round(ape, 4)
-                else:
-                    row[f'{year} APE(%)'] = ''
-                row[f'{year} Actual'] = round(actual, 2) if actual != '' else ''
-                row[f'{year} Fitted'] = round(fitted, 2) if fitted != '' else ''
-
-            for year in TEST_YEARS:
-                actual = data['test_actual'].get(year, '')
-                predicted = method_data.get('test_predicted', {}).get(year, '')
-                if actual != '' and predicted != '' and actual != 0:
-                    ape = abs((actual - predicted) / actual) * 100
-                    row[f'{year} APE(%)'] = round(ape, 4)
-                else:
-                    row[f'{year} APE(%)'] = ''
-                row[f'{year} Actual'] = round(actual, 2) if actual != '' else ''
-                row[f'{year} Predicted'] = round(predicted, 2) if predicted != '' else ''
-
-            rows.append(row)
-
-    df = pd.DataFrame(rows)
-
-    cols = ['Province', 'Indicator', 'Method', 'MAPE_s(%)', 'MAPE_p(%)']
-    for year in TRAIN_YEARS:
-        cols.extend([f'{year} APE(%)', f'{year} Actual', f'{year} Fitted'])
-    for year in TEST_YEARS:
-        cols.extend([f'{year} APE(%)', f'{year} Actual', f'{year} Predicted'])
-
-    df = df[[c for c in cols if c in df.columns]]
-    filepath = os.path.join(OUTPUT_DIR, 'Complete_Results.csv')
-    df.to_csv(filepath, index=False, encoding='utf-8-sig')
-    print(f"Complete results saved to: {filepath}")
-    return df
-
-
-def save_detailed_mape_table(all_results):
-    import pandas as pd
-    rows = []
-
-    for key, data in all_results.items():
-        province = data['province']
-        indicator = data['indicator']
-
-        for method in METHOD_NAMES:
-            if method not in data['methods']:
-                continue
-
-            method_data = data['methods'][method]
-            mape_s = method_data.get('mape_s')
-            mape_p = method_data.get('mape_p')
-
-            if mape_s is None:
-                train_actual = data['train_actual']
-                train_fitted = method_data.get('train_fitted', {})
-                ape_s_list = []
-                for year, actual in train_actual.items():
-                    fitted = train_fitted.get(year)
-                    if fitted is not None and actual != 0:
-                        ape = abs((actual - fitted) / actual) * 100
-                        ape_s_list.append(ape)
-                mape_s = np.mean(ape_s_list) if ape_s_list else None
-
-            if mape_p is None:
-                test_actual = data['test_actual']
-                test_predicted = method_data.get('test_predicted', {})
-                ape_p_list = []
-                for year, actual in test_actual.items():
-                    predicted = test_predicted.get(year)
-                    if predicted is not None and actual != 0:
-                        ape = abs((actual - predicted) / actual) * 100
-                        ape_p_list.append(ape)
-                mape_p = np.mean(ape_p_list) if ape_p_list else None
-
-            if mape_s is not None and mape_p is not None:
-                mape = (mape_s + mape_p) / 2
-            else:
-                mape = None
-
-            row = {
-                'Province': province,
-                'Indicator': indicator,
-                'Method': method,
-                'MAPE_s(%)': round(mape_s, 4) if mape_s is not None else '',
-                'MAPE_p(%)': round(mape_p, 4) if mape_p is not None else '',
-                'MAPE(%)': round(mape, 4) if mape is not None else ''
-            }
-            rows.append(row)
-
-    df = pd.DataFrame(rows)
-
-    cols = ['Province', 'Indicator', 'Method', 'MAPE_s(%)', 'MAPE_p(%)', 'MAPE(%)']
-    df = df[[c for c in cols if c in df.columns]]
-
-    filepath = os.path.join(OUTPUT_DIR, 'Detailed_MAPE_Table.csv')
-    df.to_csv(filepath, index=False, encoding='utf-8-sig')
-    print(f"Detailed MAPE table saved to: {filepath}")
-    return df
+    print(f'saved: {fp}')
 
 
 def main():
-    print("=" * 80)
-    print("8 Methods Comparison Analysis (with EJCPCFGM(sigma,1))")
-    print("Only includes Jiangsu and Anhui provinces")
-    print("=" * 80)
-
-    print(f"\nOutput directory: {OUTPUT_DIR}/")
-
-    print("\nBuilding results from embedded data...")
-    all_results = build_all_results()
-
-    print(f"\nTotal {len(all_results)} datasets:")
-    for key in all_results:
-        data = all_results[key]
-        print(f"  {data['province']}-{data['indicator']}: {len(data['methods'])} methods")
-
-    print("\nSaving results...")
-    save_combined_csv(all_results)
-    save_detailed_mape_table(all_results)
-
-    print_summary_table(all_results)
-
-    best_results, avg_mapes_p, avg_mapes_s = find_best_model(all_results)
-
-    print("\nGenerating comparison plots...")
-
-    province_map = {
-        'Jiangsu': 'Jiangsu',
-        'Anhui': 'Anhui'
-    }
-
-    indicator_map = {
-        'Elec': 'Electricity_Consumption',
-        'Gen': 'Electricity_Generation'
-    }
-
-    for key, data in all_results.items():
-        province = data['province']
-        indicator = data['indicator']
-
-        province_en = province_map.get(province, province)
-        indicator_en = indicator_map.get(indicator, indicator)
-
-        print(f"Plotting {province_en} - {indicator_en}...")
-        plot_province_indicator(data, province_en, indicator_en)
-
-    import pandas as pd
-    best_df = pd.DataFrame(best_results)
-    best_filepath = os.path.join(OUTPUT_DIR, 'Best_Model_Summary.csv')
-    best_df.to_csv(best_filepath, index=False, encoding='utf-8-sig')
-    print(f"\nBest model summary saved to: {best_filepath}")
-
-    print("\n" + "=" * 80)
-    print(f"Analysis complete! All results saved to {OUTPUT_DIR}/ folder")
-    print(f"Total 4 figures generated (2 provinces x 2 indicators)")
-    print("=" * 80)
+    print(f"output: {OUT}/")
+    all_d = build()
+    for (prov, ind), d in all_d.items():
+        print(f"plotting {prov} {ind}...")
+        plot_one(d, prov, ind)
+    print("done.")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Anhui electricity generation - test N impulses, pick best by test MAPE."""
+"""Jiangsu electricity consumption - test N impulses, pick best by test MAPE."""
 import os
 import csv
 import time
@@ -12,14 +12,14 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(SCRIPT_DIR, 'Optimal_N_Results')
 os.makedirs(OUT_DIR, exist_ok=True)
 
-TRAIN = [1443.85, 1635.35, 1767.50, 1970.04, 2033.91, 2062.00,
-         2252.69, 2456.28, 2734.49, 2886.67, 2808.98, 3083.39]
-TEST = [3298.77, 3549.45, 3863.46]
+TRAIN = [3864.00, 4281.62, 4580.90, 4956.60, 5012.54, 5114.70,
+         5458.95, 5807.89, 6128.27, 6264.00, 6374.00, 7101.00]
+TEST = [7400.00, 7833.00, 8486.93]
 
-SEED = 88199
-RIDGE = 1e-6
-THETA_LB = -4.5
-CQ_UB = 1.5
+SEED = 29165
+RIDGE = 1e-4
+THETA_LB = -5.0
+CQ_UB = 2.5
 
 
 def run_one(n, seed):
@@ -38,7 +38,7 @@ def run_one(n, seed):
 
 
 def main():
-    print(f"anhui_gen  train={len(TRAIN)} test={len(TEST)} seed={SEED}")
+    print(f"jiangsu_consumption  train={len(TRAIN)} test={len(TEST)} seed={SEED}")
 
     results = []
     for n in [0, 1, 2, 3]:
@@ -60,7 +60,7 @@ def main():
     best = min(results, key=lambda x: x['test_mape'])
     print(f"best N={best['n']}  test_mape={best['test_mape']:.4f}%")
 
-    fp = os.path.join(OUT_DIR, 'anhui_gen.csv')
+    fp = os.path.join(OUT_DIR, 'jiangsu_consumption.csv')
     with open(fp, 'w', newline='', encoding='utf-8-sig') as f:
         w = csv.writer(f)
         w.writerow(['N', 'Train_MAPE(%)', 'Test_MAPE(%)', 'sigma', 'cq', 'r', 'a', 'c', 'mu_0'])
